@@ -1,0 +1,21 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+Description: API Gateway setup for accepting batches of webhook data.
+
+Parameters:
+  BucketName:
+    Description: Name of S3 bucket
+    Type: String
+
+Resources:
+  StoreBatch:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: index.store_batch
+      Runtime: nodejs4.3
+      Events:
+        StoreBatchResource:
+          Type: Api
+          Properties:
+            Path: /store_batch
+            Method: post
