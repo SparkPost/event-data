@@ -4,8 +4,9 @@ Description: API Gateway setup for accepting batches of webhook data.
 
 Parameters:
   BucketName:
-    Description: Name of S3 bucket
+    Description: Name of S3 bucket where batches of event data should be stored.
     Type: String
+    Default: "yargevad-spevents-batches"
 
 Resources:
   StoreBatch:
@@ -13,6 +14,9 @@ Resources:
     Properties:
       Handler: index.store_batch
       Runtime: nodejs4.3
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref BucketName
       Events:
         StoreBatchResource:
           Type: Api
