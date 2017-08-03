@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# create s3 bucket to hold zipped lambdas
+#aws s3 mb s3://yargevad-spevents-lambdas
+
+aws cloudformation package \
+  --template-file api-gateway.yaml \
+  --output-template-file api-gateway.cf.yaml \
+  --s3-bucket yargevad-spevents-lambdas
+  

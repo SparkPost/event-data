@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# create s3 bucket to hold event batches
+#aws s3 mb s3://yargevad-spevents-batches
+
+aws cloudformation deploy \
+  --template-file api-gateway.cf.yaml \
+  --stack-name spevents \
+  --capabilities CAPABILITY_IAM
