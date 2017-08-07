@@ -5,14 +5,7 @@ set -euo pipefail
 # create s3 bucket to hold event batches
 #aws s3 mb s3://yargevad-spevents-batches
 
-# get name of old bucket
-LAMBDA_BUCKET=yargevad-spevents-lambdas
-OLD_LAMBDA=$(aws s3 ls $LAMBDA_BUCKET | awk '{print $4}')
-
 aws cloudformation deploy \
   --template-file api-gateway.cf.yaml \
   --stack-name spevents \
   --capabilities CAPABILITY_IAM
-
-# clean up old lambda
-aws s3 rm s3://$LAMBDA_BUCKET/$OLD_LAMBDA
