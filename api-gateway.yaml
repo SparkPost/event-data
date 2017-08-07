@@ -9,6 +9,19 @@ Parameters:
     Default: "yargevad-spevents-batches"
 
 Resources:
+  # StoreBatch writes to this bucket
+  # ProcessBatch reads from this bucket
+  BatchBucket:
+    Type: AWS::S3::Bucket
+    DependsOn: BucketCanInvokeLambda
+    Properties:
+      BucketName: !Ref BucketName
+      NotificationConfiguration:
+        LambdaConfigurations:
+        - Event: 's3:ObjectCreated:*'
+          Function: !GetAtt ProcessBatch.Arn
+
+  # Write incoming batches of event data to BatchBucket
   StoreBatch:
     Type: AWS::Serverless::Function
     Properties:
@@ -25,6 +38,7 @@ Resources:
             Path: /store_batch
             Method: post
 
+  # Allow writing to BatchBucket
   StoreBatchExecRole:
     Type: AWS::IAM::Role
     Properties:
@@ -47,3 +61,46 @@ Resources:
               - "s3:PutObject"
             Resource: !Sub "arn:aws:s3:::${BucketName}/*"
 
+  # Process batches of event data from BatchBucket
+  ProcessBatch:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !GetAtt ProcessBatchExecRole.Arn
+      Handler: index.process_batch
+      Runtime: nodejs4.3
+      Environment:
+        Variables:
+          BUCKET_NAME: !Ref BucketName
+
+  # Allow reading and deleting from BatchBucket
+  ProcessBatchExecRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal: {Service: [lambda.amazonaws.com]}
+          Action: ["sts:AssumeRole"]
+      Path: /
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      Policies:
+      - PolicyName: ProcessBatchS3
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Action:
+            - "s3:GetObject"
+            - "s3:DeleteObject"
+            Resource: !Sub "arn:aws:s3:::${BucketName}/*"
+
+  BucketCanInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref ProcessBatch
+      Principal: s3.amazonaws.com
+      SourceAccount: !Ref "AWS::AccountId"
+      SourceArn: !Sub "arn:aws:s3:::${BucketName}"
