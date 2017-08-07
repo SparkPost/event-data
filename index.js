@@ -18,7 +18,7 @@ exports.store_batch = (event, context, callback) => {
   }
 
   if (err !== null) {
-    // to return client-visible messages, don't specify error
+    // to return client-visible messages, don't specify an error
     // log it out too so it hits cloudwatch
     console.log(err.error);
     callback(null, {
@@ -49,4 +49,10 @@ exports.store_batch = (event, context, callback) => {
     });
   });
 
-}
+};
+
+exports.process_batch = (event, context, callback) => {
+  var strEvent = JSON.stringify(event);
+  console.log("processing event: "+ strEvent);
+};
+
