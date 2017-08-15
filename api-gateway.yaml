@@ -6,7 +6,31 @@ Parameters:
   BucketName:
     Description: Name of S3 bucket where batches of event data should be stored.
     Type: String
-    Default: "yargevad-spevents-batches"
+    Default: yargevad-spevents-batches
+  PGHost:
+    Description: Hostname of PostgreSQL database.
+    Type: String
+    Default: msgevents.cpyc5wwhvmsw.us-west-2.rds.amazonaws.com
+  PGDB:
+    Description: Name of database w/in PGHost.
+    Type: String
+    Default: msgevents
+  PGUser:
+    Description: PostgreSQL user to connect as.
+    Type: String
+    Default: msgevents
+  PGPass:
+    Description: Password for PostgreSQL user.
+    Type: String
+  RdsSecurityGroups:
+    Description: ID(s) of security group(s) where RDS is located.
+    Type: List<AWS::EC2::SecurityGroup::Id>
+  RdsSubnetIds:
+    Description: ID(s) of subnet(s) where RDS is located.
+    Type: List<AWS::EC2::Subnet::Id>
+  RdsVpcId:
+    Description: ID of VPC where RDS is located.
+    Type: String
 
 Resources:
   # StoreBatch writes to this bucket
@@ -27,7 +51,7 @@ Resources:
     Properties:
       Role: !GetAtt StoreBatchExecRole.Arn
       Handler: index.store_batch
-      Runtime: nodejs4.3
+      Runtime: nodejs6.10
       Environment:
         Variables:
           BUCKET_NAME: !Ref BucketName
@@ -67,10 +91,18 @@ Resources:
     Properties:
       Role: !GetAtt ProcessBatchExecRole.Arn
       Handler: index.process_batch
-      Runtime: nodejs4.3
+      Runtime: nodejs6.10
+      Timeout: 10
+      VpcConfig:
+        SecurityGroupIds: !Ref RdsSecurityGroups
+        SubnetIds: !Ref RdsSubnetIds
       Environment:
         Variables:
           BUCKET_NAME: !Ref BucketName
+          PG_HOST: !Ref PGHost
+          PG_USER: !Ref PGUser
+          PG_PASS: !Ref PGPass
+          PG_DB: !Ref PGDB
 
   # Allow reading and deleting from BatchBucket
   ProcessBatchExecRole:
@@ -85,6 +117,7 @@ Resources:
       Path: /
       ManagedPolicyArns:
       - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
       Policies:
       - PolicyName: ProcessBatchS3
         PolicyDocument:
@@ -104,3 +137,21 @@ Resources:
       Principal: s3.amazonaws.com
       SourceAccount: !Ref "AWS::AccountId"
       SourceArn: !Sub "arn:aws:s3:::${BucketName}"
+
+  VPCCanAccessS3:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal: '*'
+            Action:
+              - 's3:GetObject'
+              - 's3:DeleteObject'
+            Resource:
+              - !Sub "arn:aws:s3:::${BucketName}/*"
+      RouteTableIds:
+        - 'rtb-ae18b4c8'
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcId: !Ref RdsVpcId
