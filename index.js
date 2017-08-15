@@ -1,6 +1,7 @@
 'use strict';
 var AWS = require('aws-sdk');
 var s3 = new AWS.S3();
+var pg = require('pg');
 
 const BucketName = process.env.BUCKET_NAME;
 
@@ -32,24 +33,37 @@ exports.store_batch = (event, context, callback) => {
   var blen = event.body.length;
   var params = { Bucket: BucketName, Key: batchId, Body: event.body };
 
-  s3.putObject(params, function(err, data) {
-    if (err) {
+  s3.putObject(params).promise()
+    .then((data) => {
+      console.log(data);
+      callback(null, {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: "stored "+ blen +" bytes for batch "+ batchId
+        })
+      });
+    })
+    .catch((err) => {
       console.log(err, err.stack);
       callback(err);
-      return;
-    }
-
-    console.log(data);
-    callback(null, {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: "stored "+ blen +" bytes for batch "+ batchId
-      })
     });
-  });
-
 };
+
+const PGHost = process.env.PG_HOST;
+const PGUser = process.env.PG_USER;
+const PGPass = process.env.PG_PASS;
+const PGDB   = process.env.PG_DB;
+
+var PGDSN  = 'postgres://'+ PGUser +':'+ PGPass +'@'+ PGHost +'/'+ PGDB;
+
+function send_error(err, callback) {
+  callback(err.error, {
+    statusCode: 400,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(err)
+  });
+}
 
 exports.process_batch = (event, context, callback) => {
   var err = null;
@@ -59,43 +73,58 @@ exports.process_batch = (event, context, callback) => {
   console.log("processing event: "+ strEvent);
 
   if (typeof event.Records === 'undefined') {
-    err = { error: "event.Records not found" };
-  } else if (event.Records.length != 1) {
-    err = { error: "expected 1 record, got ["+ event.Records.length +"]" };
+    send_error({ error: "event.Records not found" });
+    return;
+  } else if (event.Records.length !== 1) {
+    send_error({ error: "expected 1 record, got ["+ event.Records.length +"]" });
+    return;
   }
+
   var e = event.Records[0];
   if (e.eventSource !== "aws:s3") {
-    err = { error: "unexpected event source ["+ e.eventSource +"]" }
+    send_error({ error: "unexpected event source ["+ e.eventSource +"]" });
+    return;
   }
+
   var bucketName = e.s3.bucket.name;
   var objKey = e.s3.object.key;
   if (typeof bucketName === 'undefined') {
-    err = { error: "no bucket name in event" };
+    send_error({ error: "no bucket name in event" });
+    return;
   } else if (bucketName !== BucketName) {
-    err = { error: "unexpected bucket name ["+ bucketName +"]" };
+    send_error({ error: "unexpected bucket name ["+ bucketName +"]" });
+    return;
   } else if (typeof objKey === 'undefined') {
-    err = { error: "no object key in event" };
-  }
-
-  if (err !== null) {
-    callback(err.error, {
-      statusCode: 400,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(err)
-    });
+    send_error({ error: "no object key in event" });
     return;
   }
 
   var params = { Bucket: bucketName, Key: objKey };
-  s3.getObject(params, _process_batch);
-};
+  console.log('will connect to ['+ PGDSN +']');
+  var dbh = new pg.Client(PGDSN);
 
-function _process_batch(err, data) {
-  if (err) {
+  s3.getObject(params).promise()
+    .then(function(data) {
+      console.log('connecting to postgres'); // DEBUG
+      dbh.connect();
+      // Make sure we have a live connection by running a dummy query
+      dbh.query('SELECT now() as now')
+        .then((res) => {
+          console.log(res);
+          callback(null, {
+            statusCode: 200,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(res)
+          });
+        }).catch((err) => {
+          console.log(err);
+          callback(err);
+        }).then(() => {
+          dbh.end();
+        });
+  }).catch(function(err) {
     console.log(err, err.stack);
     callback(err);
-    return;
-  }
+  });
+};
 
-  console.log(data);
-}
