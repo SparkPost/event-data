@@ -1,4 +1,5 @@
 #!/bin/sh
+set -euo pipefail
 
 # create s3 bucket to hold zipped lambdas
 #aws s3 mb s3://yargevad-spevents-lambdas
