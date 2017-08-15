@@ -138,6 +138,8 @@ Resources:
       SourceAccount: !Ref "AWS::AccountId"
       SourceArn: !Sub "arn:aws:s3:::${BucketName}"
 
+  # ProcessBatch runs in the same VPC as RDS, so it can connect to RDS.
+  # Access to S3 from w/in a VPC requires a "VPC Endpoint":
   VPCCanAccessS3:
     Type: AWS::EC2::VPCEndpoint
     Properties:
