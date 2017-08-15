@@ -5,7 +5,11 @@ set -euo pipefail
 # create s3 bucket to hold event batches
 #aws s3 mb s3://yargevad-spevents-batches
 
+# FIXME: error if any required env var (password) is empty
+
 aws cloudformation deploy \
   --template-file api-gateway.cf.yaml \
-  --stack-name spevents \
+  --stack-name spevents1 \
+  --parameter-overrides "PGPass=$PGPASS" "BucketName=yargevad-spevents1-batches" \
+  "RdsSecurityGroups=$RDS_SG" "RdsSubnetIds=$RDS_SN" "RdsVpcId=$RDS_VPC_ID" \
   --capabilities CAPABILITY_IAM
