@@ -99,10 +99,10 @@ Resources:
       Environment:
         Variables:
           BUCKET_NAME: !Ref BucketName
-          PG_HOST: !Ref PGHost
-          PG_USER: !Ref PGUser
-          PG_PASS: !Ref PGPass
-          PG_DB: !Ref PGDB
+          PGHOST: !Ref PGHost
+          PGUSER: !Ref PGUser
+          PGPASSWORD: !Ref PGPass
+          PGDATABASE: !Ref PGDB
 
   # Allow reading and deleting from BatchBucket
   ProcessBatchExecRole:
