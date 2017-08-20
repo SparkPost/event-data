@@ -68,6 +68,7 @@ const eventCols = [
   'event_id', 'timestamp', 'type', 'bounce_class', 'campaign_id', 'friendly_from', 'message_id',
   'reason', 'rcpt_to', 'subaccount_id', 'template_id', 'transmission_id', 'event'
 ];
+const dupeBatchError = "duplicate key value violates unique constraint \"batches_pkey\"";
 
 exports.process_batch = (event, context, callback) => {
   if (typeof event.Records === 'undefined') {
@@ -98,6 +99,7 @@ exports.process_batch = (event, context, callback) => {
   }
 
   const params = { Bucket: bucketName, Key: objKey };
+  let calledBack = false;
 
   s3.getObject(params).promise()
     .then(function(data) {
@@ -122,25 +124,50 @@ exports.process_batch = (event, context, callback) => {
       dbh.tx((t) => {
         var queries = [
           t.none('INSERT INTO public.batches (batch_uuid) VALUES ($1::uuid)', [objKey]),
-          t.none(values)
+          t.none(query)
         ];
         return t.batch(queries);
       })
         .then(() => {
+          pgp.end();
           callback(null, {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: "processed batch "+ objKey })
           });
-          // TODO: delete from s3 on successful batch insert
+          calledBack = true;
+          //// delete from s3 after successful processing
+          //s3.deleteObject(params).promise()
+          //  .then(() => {
+          //    console.log('deleted processed batch: ['+ objKey +']');
+          //  });
         }).catch((err) => {
-          // TODO: delete from s3 on duplicate batch id insert
-          console.log(err);
-          callback(err);
-        }).then(() => {
-          dbh.end();
+          if (err.errorMessage == dupeBatchError) {
+            // delete from s3 on duplicate batch id insert
+            s3.deleteObject(params).promise()
+              .then(() => {
+                console.log('deleted duplicate batch: ['+ objKey +']');
+              })
+              .catch((err) => {
+                console.log('error deleting duplicate batch ['+ objKey +']: '+ err);
+              });
+            callback(null, {
+              statusCode: 200,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: "duplicate batch "+ objKey })
+            });
+          } else {
+            console.log(err);
+            callback(err);
+          }
+          calledBack = true;
+          pgp.end();
         });
   }).catch((err) => {
+    if (calledBack === true) {
+      return;
+    }
+    // S3 error
     console.log(err, err.stack);
     callback(err);
   });
