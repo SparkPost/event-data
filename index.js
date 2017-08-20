@@ -133,41 +133,37 @@ exports.process_batch = (event, context, callback) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: "processed batch "+ objKey })
       });
-      calledBack = true;
-      //// delete from s3 after successful processing
-      //s3.deleteObject(params).promise()
-      //  .then(() => {
-      //    console.log('deleted processed batch: ['+ objKey +']');
-      //  });
+      // delete from s3 after successful processing
+      s3.deleteObject(params).promise().then(() => {
+        console.log('deleted processed batch: ['+ objKey +']');
+      }).catch((err) => {
+        console.log('error deleting duplicate batch ['+ objKey +']: '+ err.message);
+      });
 
     }).catch((err) => {
-      if (err.errorMessage == dupeBatchError) {
-        // delete from s3 on duplicate batch id insert
-        s3.deleteObject(params).promise()
-          .then(() => {
-            console.log('deleted duplicate batch: ['+ objKey +']');
-          })
-          .catch((err) => {
-            console.log('error deleting duplicate batch ['+ objKey +']: '+ err);
-          });
+      pgp.end();
+      if (err.message === dupeBatchError) {
+        console.log('deleting duplicate batch ['+ objKey +']');
         callback(null, {
           statusCode: 200,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: "duplicate batch "+ objKey })
         });
-      } else {
-        console.log(err);
-        callback(err);
+        // delete from s3 on duplicate batch id insert
+        s3.deleteObject(params).promise().then(() => {
+          console.log('deleted duplicate batch ['+ objKey +']');
+        }).catch((err) => {
+          console.log('error deleting duplicate batch ['+ objKey +']: '+ err.message);
+        });
+        return;
       }
-      calledBack = true;
-      pgp.end();
+      // Not a duplicate batch error.
+      console.log(err);
+      callback(err);
     });
+
   }).catch((err) => {
-    if (calledBack === true) {
-      return;
-    }
-    // S3 error
-    console.log(err, err.stack);
+    console.log('s3 handler', err, err.stack);
     callback(err);
   });
 };
