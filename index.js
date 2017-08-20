@@ -6,7 +6,6 @@ const pgp = require('pg-promise')({});
 const BucketName = process.env.BUCKET_NAME;
 
 exports.store_batch = (event, context, callback) => {
-  var strEvent = JSON.stringify(event);
   var batchId = null;
   var err = null;
   if (typeof event.headers === 'undefined') {
@@ -30,12 +29,12 @@ exports.store_batch = (event, context, callback) => {
     return;
   }
 
+  var strEvent = JSON.stringify(event);
   var blen = event.body.length;
   var params = { Bucket: BucketName, Key: batchId, Body: event.body };
 
   s3.putObject(params).promise()
     .then((data) => {
-      console.log(data);
       callback(null, {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -99,33 +98,33 @@ exports.process_batch = (event, context, callback) => {
   }
 
   const params = { Bucket: bucketName, Key: objKey };
-  let calledBack = false;
 
-  s3.getObject(params).promise().then(function(data) {
-    console.log('connecting to postgres'); // DEBUG
+  s3.getObject(params).promise().then((data) => {
     const dbh = pgp(pgCfg);
-    const colSet = pgp.helpers.ColumnSet(eventCols, {table: 'events'});
-    const jsonString = data.Body.toString();
-    const json = JSON.parse(jsonString);
-    var values = [];
-    for (var i = 0; i < json.length; i++) {
-      var j = json[i].msys;
-      for (var key in j) { j = j[key]; }
-      var row = {};
-      for (var idx = 0; idx < eventCols.length; idx++) {
-        row[eventCols[idx]] = j[eventCols[idx]];
-      }
-      row.event = JSON.stringify(j);
-      values.push(row);
-    }
-    const query = pgp.helpers.insert(values, colSet);
-    console.log('generated query: ['+ query +']');
     dbh.tx((t) => {
-      var queries = [
-        t.none('INSERT INTO public.batches (batch_uuid) VALUES ($1::uuid)', [objKey]),
-        t.none(query)
-      ];
-      return t.batch(queries);
+      return t.none('INSERT INTO public.batches (batch_uuid) VALUES ($1::uuid)', [objKey])
+      .then(() => {
+        // Delay building this potentially large query string
+        // until after we know this batch hasn't already been loaded.
+        const colSet = pgp.helpers.ColumnSet(eventCols, {table: 'events'});
+        const jsonString = data.Body.toString(); // buffer => string
+        const json = JSON.parse(jsonString); // string => object
+        // Build query params
+        var values = [];
+        for (var i = 0; i < json.length; i++) {
+          var j = json[i].msys;
+          for (var key in j) { j = j[key]; }
+          var row = {};
+          for (var idx = 0; idx < eventCols.length; idx++) {
+            row[eventCols[idx]] = j[eventCols[idx]];
+          }
+          row.event = JSON.stringify(j);
+          values.push(row);
+        }
+        // Build one query to insert all rows
+        const query = pgp.helpers.insert(values, colSet);
+        return t.none(query);
+      })
 
     }).then(() => {
       pgp.end();
