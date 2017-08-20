@@ -101,68 +101,68 @@ exports.process_batch = (event, context, callback) => {
   const params = { Bucket: bucketName, Key: objKey };
   let calledBack = false;
 
-  s3.getObject(params).promise()
-    .then(function(data) {
-      console.log('connecting to postgres'); // DEBUG
-      const dbh = pgp(pgCfg);
-      const colSet = pgp.helpers.ColumnSet(eventCols, {table: 'events'});
-      const jsonString = data.Body.toString();
-      const json = JSON.parse(jsonString);
-      var values = [];
-      for (var i = 0; i < json.length; i++) {
-        var j = json[i].msys;
-        for (var key in j) { j = j[key]; }
-        var row = {};
-        for (var idx = 0; idx < eventCols.length; idx++) {
-          row[eventCols[idx]] = j[eventCols[idx]];
-        }
-        row.event = JSON.stringify(j);
-        values.push(row);
+  s3.getObject(params).promise().then(function(data) {
+    console.log('connecting to postgres'); // DEBUG
+    const dbh = pgp(pgCfg);
+    const colSet = pgp.helpers.ColumnSet(eventCols, {table: 'events'});
+    const jsonString = data.Body.toString();
+    const json = JSON.parse(jsonString);
+    var values = [];
+    for (var i = 0; i < json.length; i++) {
+      var j = json[i].msys;
+      for (var key in j) { j = j[key]; }
+      var row = {};
+      for (var idx = 0; idx < eventCols.length; idx++) {
+        row[eventCols[idx]] = j[eventCols[idx]];
       }
-      const query = pgp.helpers.insert(values, colSet);
-      console.log('generated query: ['+ query +']');
-      dbh.tx((t) => {
-        var queries = [
-          t.none('INSERT INTO public.batches (batch_uuid) VALUES ($1::uuid)', [objKey]),
-          t.none(query)
-        ];
-        return t.batch(queries);
-      })
-        .then(() => {
-          pgp.end();
-          callback(null, {
-            statusCode: 200,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: "processed batch "+ objKey })
+      row.event = JSON.stringify(j);
+      values.push(row);
+    }
+    const query = pgp.helpers.insert(values, colSet);
+    console.log('generated query: ['+ query +']');
+    dbh.tx((t) => {
+      var queries = [
+        t.none('INSERT INTO public.batches (batch_uuid) VALUES ($1::uuid)', [objKey]),
+        t.none(query)
+      ];
+      return t.batch(queries);
+
+    }).then(() => {
+      pgp.end();
+      callback(null, {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: "processed batch "+ objKey })
+      });
+      calledBack = true;
+      //// delete from s3 after successful processing
+      //s3.deleteObject(params).promise()
+      //  .then(() => {
+      //    console.log('deleted processed batch: ['+ objKey +']');
+      //  });
+
+    }).catch((err) => {
+      if (err.errorMessage == dupeBatchError) {
+        // delete from s3 on duplicate batch id insert
+        s3.deleteObject(params).promise()
+          .then(() => {
+            console.log('deleted duplicate batch: ['+ objKey +']');
+          })
+          .catch((err) => {
+            console.log('error deleting duplicate batch ['+ objKey +']: '+ err);
           });
-          calledBack = true;
-          //// delete from s3 after successful processing
-          //s3.deleteObject(params).promise()
-          //  .then(() => {
-          //    console.log('deleted processed batch: ['+ objKey +']');
-          //  });
-        }).catch((err) => {
-          if (err.errorMessage == dupeBatchError) {
-            // delete from s3 on duplicate batch id insert
-            s3.deleteObject(params).promise()
-              .then(() => {
-                console.log('deleted duplicate batch: ['+ objKey +']');
-              })
-              .catch((err) => {
-                console.log('error deleting duplicate batch ['+ objKey +']: '+ err);
-              });
-            callback(null, {
-              statusCode: 200,
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: "duplicate batch "+ objKey })
-            });
-          } else {
-            console.log(err);
-            callback(err);
-          }
-          calledBack = true;
-          pgp.end();
+        callback(null, {
+          statusCode: 200,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: "duplicate batch "+ objKey })
         });
+      } else {
+        console.log(err);
+        callback(err);
+      }
+      calledBack = true;
+      pgp.end();
+    });
   }).catch((err) => {
     if (calledBack === true) {
       return;
