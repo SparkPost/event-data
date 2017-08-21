@@ -2,6 +2,7 @@
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3();
 const pgp = require('pg-promise')({});
+const squel = require('squel');
 
 const BucketName = process.env.BUCKET_NAME;
 
@@ -168,3 +169,80 @@ exports.process_batch = (event, context, callback) => {
   });
 };
 
+let qb = squel.useFlavour('postgres');
+
+exports.query_events = (event, context, callback) => {
+  // build base query
+  let q = qb.select().field('event').from('events')
+    , where = squel.expr()
+    , defaultTimestamp = true
+    , qp = event.queryStringParameters
+  ;
+
+  // transform event.queryStringParameters into SQL
+  if (qp['events'] !== null && qp['events'] !== undefined) {
+    if (qp['events'].match(/[^a-zA-Z_,]/)) {
+      callback(null, {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'Illegal character in event type list'
+        })
+      });
+      return;
+    }
+    where = where.and('type = ANY(?::text[])', [qp['events'].split(/\s*,\s*/)]);
+  }
+
+  const toEpoch = "date_part('epoch', (?::timestamptz))";
+  if (qp['from'] !== null && qp['from'] !== undefined &&
+      qp['to'] !== null && qp['to'] !== undefined
+  ) {
+    defaultTimestamp = false;
+    where = where.and('"timestamp" BETWEEN ? AND ?',
+      squel.str(toEpoch, qp['from']),
+      squel.str(toEpoch, qp['to']))
+  } else if (qp['from'] !== null && qp['from'] !== undefined) {
+    defaultTimestamp = false;
+    where = where.and('"timestamp" BETWEEN ? AND ?',
+      squel.str(toEpoch, qp['from']),
+      squel.str("date_part('epoch', NOW())"));
+  } else if (qp['to'] !== null && qp['to'] !== undefined) {
+    console.log('Cannot specify `to` without `from`');
+    callback(null, {
+      statusCode: 400,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        error: 'Cannot specify `to` without `from`'
+      })
+    });
+    return;
+  }
+
+  if (defaultTimestamp === true) {
+    where = where.and(
+        // set the default date range to query
+        '"timestamp" BETWEEN ? AND ?',
+        squel.str("date_part('epoch', (NOW() - interval '1 day'))"),
+        squel.str("date_part('epoch', NOW())"))
+  }
+
+  q = q.where(where); // add the where expression to the query object
+  const query = q.toParam();
+  console.log(JSON.stringify(query));
+  const dbh = pgp(pgCfg);
+  dbh.any(query['text'], query['values'])
+    .then((data) => {
+      console.log('data: '+ JSON.stringify(data));
+      callback(null, {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      pgp.end();
+    })
+    .catch((err) => {
+      callback(err);
+      pgp.end();
+    });
+};
