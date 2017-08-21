@@ -9,7 +9,7 @@ set -euo pipefail
 
 aws cloudformation deploy \
   --template-file api-gateway.cf.yaml \
-  --stack-name spevents1 \
-  --parameter-overrides "PGPass=$PGPASS" "BucketName=yargevad-spevents1-batches" \
+  --stack-name spevents \
+  --parameter-overrides "PGPass=$PGPASS" "BucketName=yargevad-spevents-batches" \
   "RdsSecurityGroups=$RDS_SG" "RdsSubnetIds=$RDS_SN" "RdsVpcId=$RDS_VPC_ID" \
   --capabilities CAPABILITY_IAM
