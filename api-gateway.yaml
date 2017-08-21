@@ -129,6 +129,44 @@ Resources:
             - "s3:DeleteObject"
             Resource: !Sub "arn:aws:s3:::${BucketName}/*"
 
+  # Query event database, returning matching events
+  QueryEvents:
+    Type: AWS::Serverless::Function
+    Properties:
+      Role: !GetAtt QueryEventsExecRole.Arn
+      Handler: index.query_events
+      Runtime: nodejs6.10
+      Timeout: 10
+      VpcConfig:
+        SecurityGroupIds: !Ref RdsSecurityGroups
+        SubnetIds: !Ref RdsSubnetIds
+      Environment:
+        Variables:
+          PGHOST: !Ref PGHost
+          PGUSER: !Ref PGUser
+          PGPASSWORD: !Ref PGPass
+          PGDATABASE: !Ref PGDB
+      Events:
+        QueryEventsResource:
+          Type: Api
+          Properties:
+            Path: /query_events
+            Method: get
+
+  QueryEventsExecRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal: {Service: [lambda.amazonaws.com]}
+          Action: ["sts:AssumeRole"]
+      Path: /
+      ManagedPolicyArns:
+      - "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+
   BucketCanInvokeLambda:
     Type: AWS::Lambda::Permission
     Properties:
