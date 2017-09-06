@@ -171,6 +171,14 @@ exports.process_batch = (event, context, callback) => {
 
 let qb = squel.useFlavour('postgres');
 
+function isInt(value) {
+  if (isNaN(value)) {
+    return false;
+  }
+  let x = parseFloat(value);
+  return (x | 0) === x;
+}
+
 exports.query_events = (event, context, callback) => {
   // build base query
   let q = qb.select().field('event').from('events')
@@ -180,6 +188,16 @@ exports.query_events = (event, context, callback) => {
   ;
 
   // transform event.queryStringParameters into SQL
+
+  if (qp['bounce_classes'] !== null && qp['bounce_classes'] != undefined) {
+    where = where.and('bounce_class IS NOT NULL')
+      .and('bounce_class = ANY(?::int[])', [qp['bounce_classes'].split(/\s*,\s*/)]);
+  }
+
+  if (qp['campaign_ids'] !== null && qp['campaign_ids'] !== undefined) {
+    where = where.and('campaign_ids = ANY(?::text[])', [qp['campaign_ids'].split(/\s*,\s*/)]);
+  }
+
   if (qp['events'] !== null && qp['events'] !== undefined) {
     if (qp['events'].match(/[^a-zA-Z_,]/)) {
       callback(null, {
@@ -193,6 +211,69 @@ exports.query_events = (event, context, callback) => {
     }
     where = where.and('type = ANY(?::text[])', [qp['events'].split(/\s*,\s*/)]);
   }
+
+  if (qp['friendly_froms'] !== null && qp['friendly_froms'] !== undefined) {
+    where = where.and('friendly_froms = ANY(?::text[])', [qp['friendly_froms'].split(/\s*,\s*/)]);
+  }
+
+  if (qp['message_ids'] !== null && qp['message_ids'] !== undefined) {
+    where = where.and('message_ids = ANY(?::text[])', [qp['message_ids'].split(/\s*,\s*/)]);
+  }
+
+  let perPage = 1000;
+  if (qp['per_page'] !== null && qp['per_page'] !== undefined) {
+    if (!isInt(qp['per_page'])) {
+      callback(null, {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'Integer expected for param `per_page`'
+        })
+      });
+      return;
+    }
+    q = q.limit(qp['per_page']);
+  } else {
+    q = q.limit(perPage);
+  }
+
+  if (qp['page'] !== null && qp['page'] !== undefined) {
+    if (!isInt(qp['page'])) {
+      callback(null, {
+        statusCode: 400,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          error: 'Integer expected for param `page`'
+        })
+      });
+      return;
+    }
+    q = q.offset(qp['page']);
+  }
+
+  if (qp['reason'] !== null && qp['reason'] !== undefined) {
+    where = where.and("reason LIKE '%'|| quote_literal(?) ||'%'", qp['reason']);
+  }
+
+  if (qp['recipients'] !== null && qp['recipients'] !== undefined) {
+    where = where.and('rcpt_to = ANY(?::text[])', [qp['recipients'].split(/\s*,\s*/)]);
+  }
+
+  if (qp['subaccounts'] !== null && qp['subaccounts'] !== undefined) {
+    where = where.and('subaccount_id IS NOT NULL')
+      .and('subaccount_id = ANY(?::int[])', [qp['subaccounts'].split(/\s*,\s*/)]);
+  }
+
+  if (qp['template_ids'] !== null && qp['template_ids'] !== undefined) {
+    where = where.and('template_id IS NOT NULL')
+      .and('template_id = ANY(?::text[])', [qp['template_ids'].split(/\s*,\s*/)]);
+  }
+
+  if (qp['transmission_ids'] !== null && qp['transmission_ids'] !== undefined) {
+    where = where.and('transmission_id IS NOT NULL')
+      .and('transmission_id = ANY(?::bigint[])', [qp['transmission_ids'].split(/\s*,\s*/)]);
+  }
+
 
   const toEpoch = "date_part('epoch', (?::timestamptz))";
   if (qp['from'] !== null && qp['from'] !== undefined &&
