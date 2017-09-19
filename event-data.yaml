@@ -6,19 +6,15 @@ Parameters:
   BucketName:
     Description: Name of S3 bucket where batches of event data should be stored.
     Type: String
-    Default: yargevad-spevents-batches
   PGHost:
     Description: Hostname of PostgreSQL database.
     Type: String
-    Default: msgevents.cpyc5wwhvmsw.us-west-2.rds.amazonaws.com
   PGDB:
     Description: Name of database w/in PGHost.
     Type: String
-    Default: msgevents
   PGUser:
     Description: PostgreSQL user to connect as.
     Type: String
-    Default: msgevents
   PGPass:
     Description: Password for PostgreSQL user.
     Type: String
@@ -30,6 +26,9 @@ Parameters:
     Type: List<AWS::EC2::Subnet::Id>
   RdsVpcId:
     Description: ID of VPC where RDS is located.
+    Type: String
+  RdsRouteTableId:
+    Description: Route table id for VPC where RDS is.
     Type: String
 
 Resources:

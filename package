@@ -1,11 +1,19 @@
-#!/bin/sh
+#!/bin/bash
 set -euo pipefail
 
 # create s3 bucket to hold zipped lambdas
-#aws s3 mb s3://yargevad-spevents-lambdas
+#aws s3 mb s3://best-lambdas-evar
+
+set +u
+# check for required env vars
+if [[ -z "$LAMBDA_S3_BUCKET" ]]; then
+  echo "ERROR: env var LAMBDA_S3_BUCKET must be set!"
+  exit 1
+fi
+set -u
 
 aws cloudformation package \
   --template-file event-data.yaml \
   --output-template-file event-data.cf.yaml \
-  --s3-bucket yargevad-spevents-lambdas
+  --s3-bucket "$LAMBDA_S3_BUCKET"
   

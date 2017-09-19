@@ -1,15 +1,42 @@
 #!/bin/bash
 set -euo pipefail
 
+set +u
+# check for required env vars
+if [[ -z "$PGHOST" ]]; then
+  echo "ERROR: env var PGHOST must be set!"
+  exit 1
+elif [[ -z "$PGDB" ]]; then
+  echo "ERROR: env var PGDB must be set!"
+  exit 1
+elif [[ -z "$PGUSER" ]]; then
+  echo "ERROR: env var PGUSER must be set!"
+  exit 1
+elif [[ -z "$PGPASS" ]]; then
+  echo "ERROR: env var PGPASS must be set!"
+  exit 1
+elif [[ -z "$WEBHOOK_S3_BUCKET" ]]; then
+  echo "ERROR: env var WEBHOOK_S3_BUCKET must be set!"
+  exit 1
+elif [[ -z "$RDS_SG" ]]; then
+  echo "ERROR: env var RDS_SG must be set!"
+  exit 1
+elif [[ -z "$RDS_SN" ]]; then
+  echo "ERROR: env var RDS_SN must be set!"
+  exit 1
+elif [[ -z "$RDS_VPC_ID" ]]; then
+  echo "ERROR: env var RDS_VPC_ID must be set!"
+  exit 1
+elif [[ -z "$RDS_RTB_ID" ]]; then
+  echo "ERROR: env var RDS_RTB_ID must be set!"
+fi
+set -u
 
-# create s3 bucket to hold event batches
-#aws s3 mb s3://yargevad-spevents-batches
-
-# FIXME: error if any required env var (password) is empty
-
+# adding parameters is a pain, see: https://github.com/aws/aws-cli/issues/2599
 aws cloudformation deploy \
   --template-file event-data.cf.yaml \
   --stack-name spevents \
-  --parameter-overrides "PGPass=$PGPASS" "BucketName=yargevad-spevents-batches" \
-  "RdsSecurityGroups=$RDS_SG" "RdsSubnetIds=$RDS_SN" "RdsVpcId=$RDS_VPC_ID" \
+  --parameter-overrides "PGHost=$PGHOST" "PGDB=$PGDB" "PGUser=$PGUSER" "PGPass=$PGPASS" \
+  "BucketName=$WEBHOOK_S3_BUCKET" \
+  "RdsSecurityGroups=$RDS_SG" "RdsSubnetIds=$RDS_SN" "RdsVpcId=$RDS_VPC_ID" "RdsRouteTableId=$RDS_RTB_ID" \
   --capabilities CAPABILITY_IAM
