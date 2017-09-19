@@ -29,13 +29,17 @@ elif [[ -z "$RDS_VPC_ID" ]]; then
   exit 1
 elif [[ -z "$RDS_RTB_ID" ]]; then
   echo "ERROR: env var RDS_RTB_ID must be set!"
+  exit 1
+elif [[ -z "$CF_STACK_NAME" ]]; then
+  echo "ERROR: env var CF_STACK_NAME must be set!"
+  exit 1
 fi
 set -u
 
 # adding parameters is a pain, see: https://github.com/aws/aws-cli/issues/2599
 aws cloudformation deploy \
   --template-file event-data.cf.yaml \
-  --stack-name spevents \
+  --stack-name $CF_STACK_NAME \
   --parameter-overrides "PGHost=$PGHOST" "PGDB=$PGDB" "PGUser=$PGUSER" "PGPass=$PGPASS" \
   "BucketName=$WEBHOOK_S3_BUCKET" \
   "RdsSecurityGroups=$RDS_SG" "RdsSubnetIds=$RDS_SN" "RdsVpcId=$RDS_VPC_ID" "RdsRouteTableId=$RDS_RTB_ID" \
