@@ -30,7 +30,6 @@ exports.store_batch = (event, context, callback) => {
     return;
   }
 
-  var strEvent = JSON.stringify(event);
   var blen = event.body.length;
   var params = { Bucket: BucketName, Key: batchId, Body: event.body };
 
@@ -112,10 +111,13 @@ exports.process_batch = (event, context, callback) => {
         const json = JSON.parse(jsonString); // string => object
         // Build query params
         var values = [];
+        // Iterate over the events in the batch
         for (var i = 0; i < json.length; i++) {
+          // Drill down to the event data
           var j = json[i].msys;
           for (var key in j) { j = j[key]; }
           var row = {};
+          // Pull out the values we store as columns along side the JSON
           for (var idx = 0; idx < eventCols.length; idx++) {
             row[eventCols[idx]] = j[eventCols[idx]];
           }
