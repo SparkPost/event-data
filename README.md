@@ -2,12 +2,22 @@
 
 ## What is this?
 
-An example application that is a drop-in replacement for the Message Events interface.
+An example application that is (almost) a drop-in replacement for the Message Events interface.
 It lets you configure your own data retention period, add custom filters, and optimize for your most common queries.
 All of the system components are eligible for the AWS free tier, so this system will be no- or low-cost to operate.
 
 One important note about this system is that it allows anyone who knows the url to see your event data, including email addresses.
 Here are the [official docs](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-control-access-using-iam-policies-to-invoke-api.html) on setting up an IP Whitelist for API Gateway, and [another post](http://benfoster.io/blog/aws-api-gateway-ip-restrictions) that covers how to use [Postman](https://getpostman.com) to sign and submit requests.
+
+[Message Events](https://developers.sparkpost.com/api/message-events.html) returns JSON that looks like:
+
+    {
+      "links": [],
+      "results": [],
+      "total_count": 0
+    }
+
+This system returns an array of events, the `results` value from above.
 
 ## How do I use it?
 
@@ -48,6 +58,7 @@ Here's two quick ways to get your IP:
 Click the `Inbound Rules` tab at the bottom, then `Edit` and `Add another rule`.
 Enter `5432` in the `Port Range` column, and your IP in the `Source` column and click `Save`.
 Now we can at least connect to our database using [`psql`](https://www.postgresql.org/docs/current/static/app-psql.html).
+Which we will not do now. Yet.
 
 ### Environment Variables
 
@@ -55,11 +66,11 @@ Gathering all of this information is one of the big reasons I'd like to manage t
 
 #### CloudFormation Stuff
 
-`CF_STACK_NAME` - name of your "stack" (group of things CF creates)
+`CF_STACK_NAME` - pick a name for your "stack" (group of things CF creates)
 
 #### S3 Stuff
 
-`LAMBDA_S3_BUCKET` - this is the name of the bucket we created in the last step
+`LAMBDA_S3_BUCKET` - this is the name of the bucket we created in `CLI and S3`
 
 `WEBHOOKS_S3_BUCKET` - name of bucket to be created by CloudFormation
 
@@ -81,7 +92,7 @@ Click `Services > VPC`, click `VPC` again to bring up a listing, select the VPC 
 `RDS_VPC_ID` - `VPC ID` column value
 `RDS_RTB_ID` - `Route table` column value
 
-In the far left menu, `Your VPCs` should be selected, click `Subnets`.
+In the far left menu, `Your VPCs` will be selected, click `Subnets`.
 
 `RDS_SN` - comma-separated list of `Subnet ID` column values for RDS VPC
 
@@ -109,7 +120,7 @@ and voila, our database is ready to accept event data.
 
 ### CloudFormation
 
-AKA the go button(s).
+AKA the go button(s) for all the not-database stuff.
 This repo contains two scripts, `package` and `deploy`, corresponding to the `aws cloudformation` CLI commands.
 If you'd like some more insight into what they're doing, [this blog post](https://aws.amazon.com/blogs/compute/introducing-simplified-serverless-application-deplyoment-and-management/) gives an overview.
 For even more detail, read through and cross-reference with `aws cloudformation package help` / `aws cloudformation deploy help`.
@@ -123,7 +134,7 @@ It uploads your Lambda code to the specified S3 bucket and generates another Clo
     Execute the following command to deploy the packaged template
     aws cloudformation deploy --template-file ./event-data.cf.yaml --stack-name <YOUR STACK NAME>
 
-Once that's done, we can deploy.
+Once that's done, we can `deploy`.
 
     $ ./deploy
     Waiting for changeset to be created..
@@ -136,12 +147,12 @@ Once that's done, we can deploy.
 SparkPost's webhook config page lets us send test payloads to sanity check our setup, so let's do that.
 First we need the URL of our endpoint: `Services > API Gateway > <YOUR STACK NAME> > Stages > Prod > Invoke URL`.
 Also, we need to append the correct `Resource` path, which in this case is `/store_batch`.
-That should look something like:
+That should end up looking something like:
 
     https://0123456789.execute-api.us-west-2.amazonaws.com/Prod/store_batch
 
 Log in to your SparkPost account and click `Account > Webhooks > New Webhook`.
-Pick any `Webhook Name`, use the url we found above as the `Target URL`, and `Add Webhook`.
+Pick any `Webhook Name` you like, use the url we found above as the `Target URL`, and `Add Webhook`.
 To send a batch of test data, click the aptly-named `Test` link, then scroll down and click `Send Test Batch`.
 The batch will be sent, and the UI will display the server's response.
 Now remember we're only storing the batch in-band, so there are a couple places we can look for info on what happened.
@@ -156,5 +167,7 @@ To search through the test data we've just loaded, let's use the `query_events` 
     $ curl https://0123456789.execute-api.us-west-2.amazonaws.com/Prod/query_events\?type\=open\&from\=2016-02-02T00:00:00Z\&to\=2016-02-03T00:00:00Z
 
 Which will hand back a JSON-encoded array of matching events.
+If you're handy with `psql`, you can also connect directly and examine the `batches` and `events` tables.
+The `events` data is [partitioned](https://www.postgresql.org/docs/current/static/ddl-partitioning.html) by month in this setup, which makes it super easy to do things like archive data a month at a time, and lets the query planner scan only the relevant months.
 
 ### That's all folks!
