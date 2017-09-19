@@ -8,7 +8,7 @@ set -euo pipefail
 # FIXME: error if any required env var (password) is empty
 
 aws cloudformation deploy \
-  --template-file api-gateway.cf.yaml \
+  --template-file event-data.cf.yaml \
   --stack-name spevents \
   --parameter-overrides "PGPass=$PGPASS" "BucketName=yargevad-spevents-batches" \
   "RdsSecurityGroups=$RDS_SG" "RdsSubnetIds=$RDS_SN" "RdsVpcId=$RDS_VPC_ID" \
