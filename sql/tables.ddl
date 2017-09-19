@@ -4,7 +4,7 @@ CREATE TABLE public.batches (
 );
 
 CREATE TABLE public.events (
-  event_id bigint not null,
+  event_id bigint, --not null, -- NOPE: sms_status example events don't have event_ids
   "timestamp" double precision not null,
   type text not null,
 
