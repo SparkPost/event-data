@@ -1,0 +1,11 @@
+{
+  "name": "spevents",
+  "version": "0.1.0",
+  "description": "node + postgres lambdas",
+  "main": "index.js",
+  "author": "Dave Gray",
+  "license": "MIT",
+  "dependencies": {
+    "pg-promise": "^6.4.0"
+  }
+}
