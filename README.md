@@ -90,6 +90,7 @@ If you have more than one VPC, you AWS pro, make a note of which one your RDS in
 Click `Services > VPC`, click `VPC` again to bring up a listing, select the VPC that has your RDS instance.
 
 `RDS_VPC_ID` - `VPC ID` column value
+
 `RDS_RTB_ID` - `Route table` column value
 
 In the far left menu, `Your VPCs` will be selected, click `Subnets`.
