@@ -6,10 +6,10 @@ An example application that is (almost) a drop-in replacement for the Message Ev
 It lets you configure your own data retention period, add custom filters, and optimize for your most common queries.
 All of the system components are eligible for the AWS free tier, so this system will be no- or low-cost to operate.
 
-One important note about this system is that it allows anyone who knows the url to see your event data, including email addresses.
-Here are the [official docs](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-control-access-using-iam-policies-to-invoke-api.html) on setting up an IP Whitelist for API Gateway, and [another post](http://benfoster.io/blog/aws-api-gateway-ip-restrictions) that covers how to use [Postman](https://getpostman.com) to sign and submit requests.
+By default, this system *allows anyone who knows your API Gateway url to see your event data, which includes your customers' email addresses*.
+Here are the [official docs](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-control-access-using-iam-policies-to-invoke-api.html) on setting up an IP Whitelist for API Gateway, and [another post](http://benfoster.io/blog/aws-api-gateway-ip-restrictions) that covers whitelist setup, as well as how to use [Postman](https://getpostman.com) to sign and submit requests.
 
-[Message Events](https://developers.sparkpost.com/api/message-events.html) returns JSON that looks like:
+The main difference between [Message Events](https://developers.sparkpost.com/api/message-events.html) and this system is that Message Events returns JSON that looks like:
 
     {
       "links": [],
@@ -17,7 +17,7 @@ Here are the [official docs](https://docs.aws.amazon.com/apigateway/latest/devel
       "total_count": 0
     }
 
-This system returns an array of events, the `results` value from above.
+whereas this system returns an array of events, the `results` value from above, since pagination isn't currently supported.
 
 ## How do I use it?
 
