@@ -2,37 +2,34 @@
 set -euo pipefail
 
 set +u
+
+function error {
+  echo "ERROR: env var ${1} must be set!"
+  exit 1
+}
+  
+
 # check for required env vars
 if [[ -z "$PGHOST" ]]; then
-  echo "ERROR: env var PGHOST must be set!"
-  exit 1
+  error "PGHOST"
 elif [[ -z "$PGDB" ]]; then
-  echo "ERROR: env var PGDB must be set!"
-  exit 1
+  error "PGDB"
 elif [[ -z "$PGUSER" ]]; then
-  echo "ERROR: env var PGUSER must be set!"
-  exit 1
+  error "PGUSER"
 elif [[ -z "$PGPASS" ]]; then
-  echo "ERROR: env var PGPASS must be set!"
-  exit 1
+  error "PGPASS"
 elif [[ -z "$WEBHOOK_S3_BUCKET" ]]; then
-  echo "ERROR: env var WEBHOOK_S3_BUCKET must be set!"
-  exit 1
+  error "WEBHOOK_S3_BUCKET"
 elif [[ -z "$RDS_SG" ]]; then
-  echo "ERROR: env var RDS_SG must be set!"
-  exit 1
+  error "RDS_SG"
 elif [[ -z "$RDS_SN" ]]; then
-  echo "ERROR: env var RDS_SN must be set!"
-  exit 1
+  error "RDS_SN"
 elif [[ -z "$RDS_VPC_ID" ]]; then
-  echo "ERROR: env var RDS_VPC_ID must be set!"
-  exit 1
+  error "RDS_VPC_ID"
 elif [[ -z "$RDS_RTB_ID" ]]; then
-  echo "ERROR: env var RDS_RTB_ID must be set!"
-  exit 1
+  error "RDS_RTB_ID"
 elif [[ -z "$CF_STACK_NAME" ]]; then
-  echo "ERROR: env var CF_STACK_NAME must be set!"
-  exit 1
+  error "CF_STACK_NAME"
 fi
 set -u
 
