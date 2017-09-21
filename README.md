@@ -8,7 +8,7 @@ Event Data is an (almost) drop-in replacement for the Message Events interface.
 It lets you configure your own data retention period, add custom filters, and optimize for your most common queries.
 All of the system components are eligible for the AWS free tier, so this system will be no- or low-cost to operate.
 
-By default, this system *allows anyone who knows your API Gateway url to see your event data, which includes your customers' email addresses*.
+By default, this system **allows anyone who knows your API Gateway url to see your event data, which includes your customers' email addresses**.
 Here are the [official docs](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-control-access-using-iam-policies-to-invoke-api.html) on setting up an IP Whitelist for API Gateway, and [another post](http://benfoster.io/blog/aws-api-gateway-ip-restrictions) that covers whitelist setup, as well as how to use [Postman](https://getpostman.com) to sign and submit requests.
 
 The main difference between [Message Events](https://developers.sparkpost.com/api/message-events.html) and this system is that Message Events returns JSON that looks like:
