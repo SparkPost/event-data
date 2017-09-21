@@ -4,7 +4,7 @@
 
 If you've ever been frustrated with the data retention limitation on our Message Events Interface, this is a possible solution.
 
-Event Data, is an (almost) drop-in replacement for the Message Events interface.
+Event Data is an (almost) drop-in replacement for the Message Events interface.
 It lets you configure your own data retention period, add custom filters, and optimize for your most common queries.
 All of the system components are eligible for the AWS free tier, so this system will be no- or low-cost to operate.
 
